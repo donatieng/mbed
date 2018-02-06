@@ -71,7 +71,13 @@ public:
     virtual ble_error_t setAdvertisingData(const GapAdvertisingData &, const GapAdvertisingData &);
 
     virtual uint16_t    getMinAdvertisingInterval(void) const {return GapAdvertisingParams::ADVERTISEMENT_DURATION_UNITS_TO_MS(BLE_GAP_ADV_INTERVAL_MIN);}
-    virtual uint16_t    getMinNonConnectableAdvertisingInterval(void) const {return GapAdvertisingParams::ADVERTISEMENT_DURATION_UNITS_TO_MS(BLE_GAP_ADV_NONCON_INTERVAL_MIN);}
+    virtual uint16_t    getMinNonConnectableAdvertisingInterval(void) const {
+        #if (NRF_SD_BLE_API_VERSION >= 5) // In SD v5+, non connectable advertising interval is the same as connectable advertising interval
+            return getMinAdvertisingInterval();
+        #else
+            return GapAdvertisingParams::ADVERTISEMENT_DURATION_UNITS_TO_MS(BLE_GAP_ADV_NONCON_INTERVAL_MIN);
+        #endif
+    }
     virtual uint16_t    getMaxAdvertisingInterval(void) const {return GapAdvertisingParams::ADVERTISEMENT_DURATION_UNITS_TO_MS(BLE_GAP_ADV_INTERVAL_MAX);}
 
     virtual ble_error_t startAdvertising(const GapAdvertisingParams &);
