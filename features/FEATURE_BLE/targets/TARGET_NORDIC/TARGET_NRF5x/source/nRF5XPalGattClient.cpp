@@ -94,8 +94,10 @@ static ble_error_t convert_sd_error(uint32_t err)
             return BLE_ERROR_INVALID_STATE;
         case NRF_ERROR_DATA_SIZE:
             return BLE_ERROR_PARAM_OUT_OF_RANGE;
+#if  (NRF_SD_BLE_API_VERSION <= 3) // Removed in Softdevice v4.0
         case BLE_ERROR_NO_TX_PACKETS:
             return BLE_ERROR_NO_MEM;
+#endif
         case NRF_ERROR_BUSY:
             return BLE_STACK_BUSY;
         case NRF_ERROR_NO_MEM:
