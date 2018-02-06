@@ -493,11 +493,18 @@ void nRF5xGattServer::hwCallback(ble_evt_t *p_ble_evt)
             eventType    = GattServerEvents::GATT_EVENT_CONFIRMATION_RECEIVED;
             handle_value = gattsEventP->params.hvc.handle;
             break;
-
+        
+#if  NRF_SD_BLE_API_VERSION >= 4 // This event has been renamed in API V4+
+        case BLE_GATTS_EVT_HVN_TX_COMPLETE: {
+            handleDataSentEvent(p_ble_evt->evt.gatts_evt.params.hvn_tx_complete.count);
+            return;
+        }
+#else
         case BLE_EVT_TX_COMPLETE: {
             handleDataSentEvent(p_ble_evt->evt.common_evt.params.tx_complete.count);
             return;
         }
+#endif
 
         case BLE_GATTS_EVT_SYS_ATTR_MISSING:
             sd_ble_gatts_sys_attr_set(gattsEventP->conn_handle, NULL, 0, 0);
