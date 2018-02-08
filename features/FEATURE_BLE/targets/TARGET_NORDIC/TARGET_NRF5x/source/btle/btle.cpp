@@ -29,6 +29,16 @@
 #include "ble/GapEvents.h"
 #include "nRF5xn.h"
 
+// This is a C++ file, so C11 _Static_assert (works with -std=gnu99 on GCC) won't work
+#undef STATIC_ASSERT_SIMPLE
+#undef STATIC_ASSERT_MSG
+
+// FIXME : We can't use mbed_assert.h because we're using these macros within functions
+#define STATIC_ASSERT_MSG(EXPR, MSG)  
+#define STATIC_ASSERT_SIMPLE(EXPR)
+
+#warning FIXME : We can't use mbed_assert.h because we're using these within functions
+
 #ifdef S110
     #define IS_LEGACY_DEVICE_MANAGER_ENABLED 1
 #elif defined(S130) || defined(S132)
@@ -55,16 +65,23 @@ extern "C" {
 #include "nRF5XPalGattClient.h"
 
 
-
-bool isEventsSignaled = false;
+// Make this volatile at it will be set in interrupt context
+volatile bool isEventsSignaled = false;
 
 extern "C" void assert_nrf_callback(uint16_t line_num, const uint8_t *p_file_name);
 void            app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t *p_file_name);
+
+// Before SDK 14, the softdevice handler is implemented within the SDK
+// In SDK 14+, we have to implement it as we're using the "polling" mode for the SD
 extern "C" void SD_EVT_IRQHandler(void); // export the softdevice event handler for registration by nvic-set-vector.
 
-
+#if NRF_SDK14PLUS_EVENT_HANDLERS
+static void btle_handler(const ble_evt_t *p_ble_evt, void *p_context);
+#else
 static void btle_handler(ble_evt_t *p_ble_evt);
+#endif
 
+#if !NRF_SDK14PLUS_EVENT_HANDLERS
 static void sys_evt_dispatch(uint32_t sys_evt)
 {
 #if (IS_LEGACY_DEVICE_MANAGER_ENABLED)
@@ -74,6 +91,7 @@ static void sys_evt_dispatch(uint32_t sys_evt)
     fs_sys_event_handler(sys_evt);
 #endif
 }
+#endif
 
 /**
  * This function is called in interrupt context to handle BLE events; i.e. pull
@@ -99,10 +117,15 @@ static uint32_t signalEvent()
 error_t btle_init(void)
 {
     nrf_clock_lf_cfg_t clockConfiguration;
+    ret_code_t err_code;
 
     // register softdevice handler vector
     NVIC_SetVector(SD_EVT_IRQn, (uint32_t) SD_EVT_IRQHandler);
 
+#if  (NRF_SD_BLE_API_VERSION >= 5)
+    err_code = nrf_sdh_enable_request();
+    ASSERT_STATUS(err_code);
+#else
     // Configure the LF clock according to values provided by btle_clock.h.
     // It is input from the chain of the yotta configuration system.
     clockConfiguration.source        = LFCLK_CONF_SOURCE;
@@ -111,6 +134,7 @@ error_t btle_init(void)
     clockConfiguration.rc_temp_ctiv  = LFCLK_CONF_RC_TEMP_CTIV;
 
     SOFTDEVICE_HANDLER_INIT(&clockConfiguration, signalEvent);
+#endif
 
     // Enable BLE stack
     /**
@@ -128,8 +152,85 @@ error_t btle_init(void)
      */
     static const bool IS_SRVC_CHANGED_CHARACT_PRESENT = true;
 
+    #if  (NRF_SD_BLE_API_VERSION >= 5)
+    // Configure softdevice manually
+    // We could have used nrf_sdh_ble_default_cfg_set() but it's tightly coupled with the macros defined in sdk_config.h
+    ble_cfg_t ble_cfg;
+    uint32_t ram_start = 0;
+
+    // Recover start address of application's RAM 
+    err_code = nrf_sdh_ble_app_ram_start_get(&ram_start);
+    ASSERT_STATUS(err_code);
+
+    // First configure GAP parameters, including the maximum number of connections
+    memset(&ble_cfg, 0, sizeof(ble_cfg_t));
+    ble_cfg.conn_cfg.conn_cfg_tag = NRF_CONNECTION_TAG;
+    ble_cfg.conn_cfg.params.gap_conn_cfg.conn_count   = CENTRAL_LINK_COUNT + PERIPHERAL_LINK_COUNT;
+    ble_cfg.conn_cfg.params.gap_conn_cfg.event_length = NRF_SDH_BLE_GAP_EVENT_LENGTH; // FIXME?
+
+    err_code = sd_ble_cfg_set(BLE_CONN_CFG_GAP, &ble_cfg, ram_start);
+    if(err_code  != NRF_SUCCESS) {
+        return ERROR_INVALID_PARAM;
+    }
+
+    // GAP - Configure the number of peripheral and central links
+    memset(&ble_cfg, 0, sizeof(ble_cfg_t));
+    ble_cfg.conn_cfg.conn_cfg_tag = NRF_CONNECTION_TAG;
+    ble_cfg.gap_cfg.role_count_cfg.periph_role_count  = PERIPHERAL_LINK_COUNT;
+    ble_cfg.gap_cfg.role_count_cfg.central_role_count = CENTRAL_LINK_COUNT;
+    ble_cfg.gap_cfg.role_count_cfg.central_sec_count  = CENTRAL_LINK_COUNT ?
+                                                        BLE_GAP_ROLE_COUNT_CENTRAL_SEC_DEFAULT : 0;
+
+    err_code = sd_ble_cfg_set(BLE_GAP_CFG_ROLE_COUNT, &ble_cfg, ram_start);
+    if(err_code  != NRF_SUCCESS) {
+        return ERROR_INVALID_PARAM;
+    }
+
+    // Configure GATT
+    memset(&ble_cfg, 0, sizeof(ble_cfg_t));
+    ble_cfg.conn_cfg.conn_cfg_tag                 = NRF_CONNECTION_TAG;
+    ble_cfg.conn_cfg.params.gatt_conn_cfg.att_mtu = NRF_SDH_BLE_GATT_MAX_MTU_SIZE; // FIXME
+
+    err_code = sd_ble_cfg_set(BLE_CONN_CFG_GATT, &ble_cfg, ram_start);
+    if(err_code  != NRF_SUCCESS) {
+        return ERROR_INVALID_PARAM;
+    }
+
+    // Number of custom UUIDs - TODO
+    memset(&ble_cfg, 0, sizeof(ble_cfg_t));
+    ble_cfg.common_cfg.vs_uuid_cfg.vs_uuid_count = NRF_SDH_BLE_VS_UUID_COUNT;
+
+    err_code = sd_ble_cfg_set(BLE_COMMON_CFG_VS_UUID, &ble_cfg, ram_start);
+    if(err_code  != NRF_SUCCESS) {
+        return ERROR_INVALID_PARAM;
+    }
+
+    // GATT Server attribute table size
+    memset(&ble_cfg, 0, sizeof(ble_cfg_t));
+    ble_cfg.gatts_cfg.attr_tab_size.attr_tab_size = GATTS_ATTR_TAB_SIZE;
+
+    err_code = sd_ble_cfg_set(BLE_GATTS_CFG_ATTR_TAB_SIZE, &ble_cfg, ram_start);
+    if(err_code  != NRF_SUCCESS) {
+        return ERROR_INVALID_PARAM;
+    }
+
+    // GATT Server, Service Changed characteristic
+    memset(&ble_cfg, 0, sizeof(ble_cfg_t));
+    ble_cfg.gatts_cfg.service_changed.service_changed = IS_SRVC_CHANGED_CHARACT_PRESENT;
+
+    err_code = sd_ble_cfg_set(BLE_GATTS_CFG_SERVICE_CHANGED, &ble_cfg, ram_start);
+    if(err_code  != NRF_SUCCESS) {
+        return ERROR_INVALID_PARAM;
+    }
+
+    // Enable BLE stack in softdevice
+    err_code = nrf_sdh_ble_enable(&ram_start);
+    if(err_code  != NRF_SUCCESS) {
+        return ERROR_INVALID_PARAM;
+    }
+    #else
     ble_enable_params_t ble_enable_params;
-    uint32_t err_code = softdevice_enable_get_default_config(CENTRAL_LINK_COUNT,
+    err_code = softdevice_enable_get_default_config(CENTRAL_LINK_COUNT,
                                                     PERIPHERAL_LINK_COUNT,
                                                     &ble_enable_params);
 
@@ -144,6 +245,7 @@ error_t btle_init(void)
     if (softdevice_enable(&ble_enable_params) != NRF_SUCCESS) {
         return ERROR_INVALID_PARAM;
     }
+    #endif
 
     // Peer Manger must been initialised prior any other call to its API (this file and btle_security_pm.cpp)
     pm_init();
@@ -162,16 +264,32 @@ error_t btle_init(void)
     pm_privacy_set(&privacy_params);
 #endif
 
+// From SDK 14 onwards event handlers are registered differently
+// http://infocenter.nordicsemi.com/index.jsp?topic=%2Fcom.nordic.infocenter.sdk5.v14.0.0%2Fmigration.html
+#if NRF_SDK14PLUS_EVENT_HANDLERS
+    // Register a handler for our BLE events.
+    NRF_SDH_BLE_OBSERVER(m_ble_observer, 3 /* default priority for user events */, btle_handler, NULL);
+#else
     ASSERT_STATUS( softdevice_ble_evt_handler_set(btle_handler));
     ASSERT_STATUS( softdevice_sys_evt_handler_set(sys_evt_dispatch));
+#endif
 
     return btle_gap_init();
 }
 
+#if NRF_SDK14PLUS_EVENT_HANDLERS
+static void btle_handler(const ble_evt_t *p_ble_evt, void *p_context)
+#else
 static void btle_handler(ble_evt_t *p_ble_evt)
+#endif
 {
+#if NRF_SDK14PLUS_EVENT_HANDLERS
+    (void)p_context; // Keep compiler happy
+#endif
     using ble::pal::vendor::nordic::nRF5XGattClient;
 
+// In SDK14+, all other modules from the SDK will be registered independently as softdevice events observers
+#if !NRF_SDK14PLUS_EVENT_HANDLERS
     /* Library service handlers */
 #if SDK_CONN_PARAMS_MODULE_ENABLE
     ble_conn_params_on_ble_evt(p_ble_evt);
@@ -186,6 +304,7 @@ static void btle_handler(ble_evt_t *p_ble_evt)
 
     // Forward BLE events to the Peer Manager
     pm_on_ble_evt(p_ble_evt);
+#endif
 #endif
 
 #if !defined(TARGET_MCU_NRF51_16K_S110) && !defined(TARGET_MCU_NRF51_32K_S110)
@@ -208,7 +327,7 @@ static void btle_handler(ble_evt_t *p_ble_evt)
             Gap::Role_t role = static_cast<Gap::Role_t>(p_ble_evt->evt.gap_evt.params.connected.role);
 #endif
             gap.setConnectionHandle(handle);
-            const Gap::ConnectionParams_t *params = reinterpret_cast<Gap::ConnectionParams_t *>(&(p_ble_evt->evt.gap_evt.params.connected.conn_params));
+            const Gap::ConnectionParams_t *params = reinterpret_cast<const Gap::ConnectionParams_t *>(&(p_ble_evt->evt.gap_evt.params.connected.conn_params));
             const ble_gap_addr_t *peer = &p_ble_evt->evt.gap_evt.params.connected.peer_addr;
 #if  (NRF_SD_BLE_API_VERSION <= 2)
             const ble_gap_addr_t *own  = &p_ble_evt->evt.gap_evt.params.connected.own_addr;
@@ -304,6 +423,18 @@ void assert_nrf_callback(uint16_t line_num, const uint8_t *p_file_name)
     ASSERT_TRUE(false, (void) 0);
 }
 
+#if NRF_SD_BLE_API_VERSION >= 5
+/*!
+    @brief      Handler for general errors above the SoftDevice layer.
+                Typically we can' recover from this so we do a reset.
+                This implementation will override the default weak symbol generated by the Nordic SDK
+*/
+void app_error_fault_handler(uint32_t id, uint32_t pc, uint32_t info)
+{
+    ASSERT_STATUS_RET_VOID( id );
+    NVIC_SystemReset();
+}
+#else
 /*!
     @brief      Handler for general errors above the SoftDevice layer.
                 Typically we can' recover from this so we do a reset.
@@ -313,3 +444,15 @@ void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t *p_
     ASSERT_STATUS_RET_VOID( error_code );
     NVIC_SystemReset();
 }
+#endif
+
+#if NRF_SDK14PLUS_EVENT_HANDLERS
+/*!
+    @brief      Handler of Softdevice events.
+                This signals that the softdevie has events that need to be processed.
+*/
+extern "C" void SD_EVT_IRQHandler(void)
+{
+    ASSERT_STATUS_RET_VOID(signalEvent());
+}
+#endif

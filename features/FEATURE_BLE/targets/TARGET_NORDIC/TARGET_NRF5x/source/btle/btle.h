@@ -26,6 +26,12 @@ extern "C" {
 #include "ble_srv_common.h"
 #include "headers/nrf_ble.h"
 
+#if NRF_SD_BLE_API_VERSION >= 5
+#include "sdk_config.h"
+#endif
+
+#define NRF_CONNECTION_TAG  1 /**<Connection tag to use with softdevice */
+
 #define CENTRAL_LINK_COUNT    3  /**<number of central links used by the application. When changing this number remember to adjust the RAM settings */
                                                                        /** If value for YOTTA_CFG_NORDIC_BLE_PERIPHERAL_LINKS was used, ram settings are adjusted by the yotta target module. */
 #define PERIPHERAL_LINK_COUNT 1     /**<number of peripheral links used by the application. When changing this number remember to adjust the RAM settings*/
@@ -33,13 +39,15 @@ extern "C" {
 #define GATTS_ATTR_TAB_SIZE 0x600 /**< GATTS attribite table size. */
                                                                        /** If value for YOTTA_CFG_NORDIC_BLE_GATTS_ATTR_TAB_SIZE was used, ram settings are adjusted by the yotta target module. */
 
+#define NRF_SDK14PLUS_EVENT_HANDLERS (NRF_SD_BLE_API_VERSION >= 5) // Softdevice event dispatching has changed in SDK14
+
 error_t     btle_init(void);
 
 // flag indicating if events have been signaled or not
 // It is used by processEvents and signalEventsToProcess
 // signalEventsToProcess raise the flag and processEvents
 // clears it.
-extern bool isEventsSignaled;
+extern volatile bool isEventsSignaled;
 
 #ifdef __cplusplus
 }
