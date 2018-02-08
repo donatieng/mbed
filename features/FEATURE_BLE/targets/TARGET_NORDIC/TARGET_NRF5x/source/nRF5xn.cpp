@@ -167,10 +167,15 @@ ble_error_t nRF5xn::shutdown(void)
      * will be many NULL references and no config information which could lead
      * to errors if the shutdown process is interrupted.
      */
+    #if NRF_SD_BLE_API_VERSION >= 5
+    if (nrf_sdh_disable_request() != NRF_SUCCESS) {
+        return BLE_STACK_BUSY;
+    }
+    #else
     if (softdevice_handler_sd_disable() != NRF_SUCCESS) {
         return BLE_STACK_BUSY;
     }
-
+    #endif
 
     /* Shutdown the BLE API and nRF51 glue code */
     ble_error_t error;
@@ -219,6 +224,13 @@ nRF5xn::waitForEvent(void)
 void nRF5xn::processEvents() {
     if (isEventsSignaled) {
         isEventsSignaled = false;
+        #if NRF_SD_BLE_API_VERSION >= 5
+        // We use the "polling" dispatch model
+        // http://infocenter.nordicsemi.com/topic/com.nordic.infocenter.sdk5.v14.2.0/group__nrf__sdh.html?cp=4_0_0_6_11_60_20#gab4d7be69304d4f5feefd1d440cc3e6c7
+        // This will process any pending events from the Softdevice
+        nrf_sdh_evts_poll();
+        #else
         intern_softdevice_events_execute();
+        #endif
     }
 }
