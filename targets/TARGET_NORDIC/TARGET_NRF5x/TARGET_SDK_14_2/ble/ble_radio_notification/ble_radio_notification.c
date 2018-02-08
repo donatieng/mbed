@@ -38,9 +38,6 @@
  * 
  */
 
-#warning arm porting pending
-#if ARM_PORTING_PENDING
-
 #include "ble_radio_notification.h"
 #include <stdlib.h>
 
@@ -89,5 +86,3 @@ uint32_t ble_radio_notification_init(uint32_t                             irq_pr
     // Configure the event
     return sd_radio_notification_cfg_set(NRF_RADIO_NOTIFICATION_TYPE_INT_ON_BOTH, distance);
 }
-
-#endif
