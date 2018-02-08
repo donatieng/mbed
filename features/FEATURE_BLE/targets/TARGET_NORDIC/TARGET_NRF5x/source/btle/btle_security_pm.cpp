@@ -27,7 +27,7 @@ extern "C" {
 
 #include "btle_security.h"
 
-extern void ah(uint8_t const * p_k, uint8_t const * p_r, uint8_t * p_local_hash);
+extern "C" void ah(uint8_t const * p_k, uint8_t const * p_r, uint8_t * p_local_hash);
 
 static bool                      initialized = false;
 
