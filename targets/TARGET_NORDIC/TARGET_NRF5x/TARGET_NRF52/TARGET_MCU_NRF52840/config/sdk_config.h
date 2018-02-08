@@ -48,6 +48,9 @@
 #endif
 // <h> Board Support 
 
+// Fix: Disable SWI1 manually as it's used by radio notifications
+#define SWI_DISABLE1 1
+
 //==========================================================
 // <q> BSP_BTN_BLE_ENABLED  - bsp_btn_ble - Button Control for BLE
  
