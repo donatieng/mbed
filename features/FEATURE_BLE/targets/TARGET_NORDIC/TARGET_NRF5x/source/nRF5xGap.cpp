@@ -209,8 +209,11 @@ ble_error_t nRF5xGap::startAdvertising(const GapAdvertisingParams &params)
     adv_para.interval    = params.getIntervalInADVUnits(); // advertising interval (in units of 0.625 ms)
     adv_para.timeout     = params.getTimeout();
     
-
+#if  (NRF_SD_BLE_API_VERSION >= 5)
+    err = sd_ble_gap_adv_start(&adv_para, NRF_CONNECTION_TAG);
+#else
     err = sd_ble_gap_adv_start(&adv_para);
+#endif
     switch(err) {
         case ERROR_NONE:
             return BLE_ERROR_NONE;
@@ -380,7 +383,11 @@ ble_error_t nRF5xGap::connect(const Address_t             peerAddr,
         scanParams.timeout     = _scanningParams.getTimeout();        /**< Scan timeout between 0x0001 and 0xFFFF in seconds, 0x0000 disables timeout. */
     }
 
+#if NRF_SD_BLE_API_VERSION >= 5
+    uint32_t rc = sd_ble_gap_connect(&addr, &scanParams, &connParams, NRF_CONNECTION_TAG);
+#else
     uint32_t rc = sd_ble_gap_connect(&addr, &scanParams, &connParams);
+#endif
     if (rc == NRF_SUCCESS) {
         return BLE_ERROR_NONE;
     }
