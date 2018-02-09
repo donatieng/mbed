@@ -196,9 +196,9 @@ error_t btle_init(void)
         return ERROR_INVALID_PARAM;
     }
 
-    // Number of custom UUIDs - TODO
+    // Number of custom UUIDs
     memset(&ble_cfg, 0, sizeof(ble_cfg_t));
-    ble_cfg.common_cfg.vs_uuid_cfg.vs_uuid_count = NRF_SDH_BLE_VS_UUID_COUNT;
+    ble_cfg.common_cfg.vs_uuid_cfg.vs_uuid_count = UUID_TABLE_MAX_ENTRIES;
 
     err_code = sd_ble_cfg_set(BLE_COMMON_CFG_VS_UUID, &ble_cfg, ram_start);
     if(err_code  != NRF_SUCCESS) {
