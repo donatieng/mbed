@@ -14,10 +14,10 @@ LR_IROM1 MBED_APP_START MBED_APP_SIZE {
    *(InRoot$$Sections)
    .ANY (+RO)
   }
-  RW_IRAM0 0x20003000 UNINIT 0x000000D8 { ;no init section
+  RW_IRAM0 0x20003200 UNINIT 0x000000D8 { ;no init section
         *(*noinit)
   }
-  RW_IRAM1 0x200030D8 0x0000CF28 {
+  RW_IRAM1 0x200032D8 0x0000CD28 {
    .ANY (+RW +ZI)
   }
 }

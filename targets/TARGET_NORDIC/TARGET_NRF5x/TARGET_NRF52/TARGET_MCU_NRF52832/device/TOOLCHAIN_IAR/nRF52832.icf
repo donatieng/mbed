@@ -16,7 +16,7 @@ define symbol __ICFEDIT_intvec_start__ = MBED_APP_START;
 /*-Memory Regions-*/
 define symbol __ICFEDIT_region_ROM_start__   = MBED_APP_START;
 define symbol __ICFEDIT_region_ROM_end__     = MBED_APP_START + MBED_APP_SIZE - 1;
-define symbol __ICFEDIT_region_RAM_start__   = 0x20003000;
+define symbol __ICFEDIT_region_RAM_start__   = 0x20003200;
 define symbol __ICFEDIT_region_RAM_end__     = 0x2000ffff;
 export symbol __ICFEDIT_region_RAM_start__;
 export symbol __ICFEDIT_region_RAM_end__;
