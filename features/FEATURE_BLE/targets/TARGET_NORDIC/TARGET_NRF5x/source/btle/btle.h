@@ -58,7 +58,6 @@ extern "C" {
 #define UUID_TABLE_MAX_ENTRIES  NRF_SDH_BLE_VS_UUID_COUNT /* This is the maximum number of 128-bit UUIDs with distinct bases that
                                                    * we expect to be in use; increase this limit if needed. */
 
-
 #define NRF_SDK14PLUS_EVENT_HANDLERS (NRF_SD_BLE_API_VERSION >= 5) // Softdevice event dispatching has changed in SDK14
 
 error_t     btle_init(void);
