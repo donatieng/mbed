@@ -137,21 +137,6 @@ error_t btle_init(void)
 #endif
 
     // Enable BLE stack
-    /**
-     * Using this call, the application can select whether to include the
-     * Service Changed characteristic in the GATT Server. The default in all
-     * previous releases has been to include the Service Changed characteristic,
-     * but this affects how GATT clients behave. Specifically, it requires
-     * clients to subscribe to this attribute and not to cache attribute handles
-     * between connections unless the devices are bonded. If the application
-     * does not need to change the structure of the GATT server attributes at
-     * runtime this adds unnecessary complexity to the interaction with peer
-     * clients. If the SoftDevice is enabled with the Service Changed
-     * Characteristics turned off, then clients are allowed to cache attribute
-     * handles making applications simpler on both sides.
-     */
-    static const bool IS_SRVC_CHANGED_CHARACT_PRESENT = true;
-
     #if  (NRF_SD_BLE_API_VERSION >= 5)
     // Configure softdevice manually
     // We could have used nrf_sdh_ble_default_cfg_set() but it's tightly coupled with the macros defined in sdk_config.h
@@ -165,7 +150,7 @@ error_t btle_init(void)
     // First configure GAP parameters, including the maximum number of connections
     memset(&ble_cfg, 0, sizeof(ble_cfg_t));
     ble_cfg.conn_cfg.conn_cfg_tag = NRF_CONNECTION_TAG;
-    ble_cfg.conn_cfg.params.gap_conn_cfg.conn_count   = CENTRAL_LINK_COUNT + PERIPHERAL_LINK_COUNT;
+    ble_cfg.conn_cfg.params.gap_conn_cfg.conn_count   = TOTAL_LINK_COUNT;
     ble_cfg.conn_cfg.params.gap_conn_cfg.event_length = NRF_SDH_BLE_GAP_EVENT_LENGTH; // FIXME?
 
     err_code = sd_ble_cfg_set(BLE_CONN_CFG_GAP, &ble_cfg, ram_start);
@@ -189,7 +174,7 @@ error_t btle_init(void)
     // Configure GATT
     memset(&ble_cfg, 0, sizeof(ble_cfg_t));
     ble_cfg.conn_cfg.conn_cfg_tag                 = NRF_CONNECTION_TAG;
-    ble_cfg.conn_cfg.params.gatt_conn_cfg.att_mtu = NRF_SDH_BLE_GATT_MAX_MTU_SIZE; // FIXME
+    ble_cfg.conn_cfg.params.gatt_conn_cfg.att_mtu = NRF_SDH_BLE_GATT_MAX_MTU_SIZE;
 
     err_code = sd_ble_cfg_set(BLE_CONN_CFG_GATT, &ble_cfg, ram_start);
     if(err_code  != NRF_SUCCESS) {
