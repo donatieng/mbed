@@ -73,7 +73,10 @@ public:
     virtual uint16_t    getMinAdvertisingInterval(void) const {return GapAdvertisingParams::ADVERTISEMENT_DURATION_UNITS_TO_MS(BLE_GAP_ADV_INTERVAL_MIN);}
     virtual uint16_t    getMinNonConnectableAdvertisingInterval(void) const {
         #if (NRF_SD_BLE_API_VERSION >= 5) // In SD v5+, non connectable advertising interval is the same as connectable advertising interval
-            return getMinAdvertisingInterval();
+            // The Mbed infrastructure expects 100ms+ - so for now return that
+            // return getMinAdvertisingInterval();
+            // FIXME infrastructure
+            return GapAdvertisingParams::GAP_ADV_PARAMS_INTERVAL_MIN_NONCON;
         #else
             return GapAdvertisingParams::ADVERTISEMENT_DURATION_UNITS_TO_MS(BLE_GAP_ADV_NONCON_INTERVAL_MIN);
         #endif
