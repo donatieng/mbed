@@ -705,9 +705,15 @@ void nRF5xGap::getPermittedTxPowerValues(const int8_t **valueArrayPP, size_t *co
         -30, -20, -16, -12, -8, -4, 0, 4
     };
 #elif defined(NRF52)
+#if  NRF_SD_BLE_API_VERSION >= 5
+    static const int8_t permittedTxValues[] = {
+        -40, -20, -16, -12, -8, -4, 0, 3, 4
+    };
+#else
     static const int8_t permittedTxValues[] = {
         -40, -20, -16, -12, -8, -4, 0, 4
     };
+#endif
 #elif defined(NRF52840_XXAA)
     static const int8_t permittedTxValues[] = {
         -40, -20, -16, -12, -8, -4, 0, 2, 3, 4, 5, 6, 7, 8, 9
