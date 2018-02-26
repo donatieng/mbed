@@ -16,8 +16,8 @@ if (MBED_APP_START == 0) {
   define symbol MBED_RAM_START = 0x20000000;
   define symbol MBED_RAM_SIZE  = 0x10000;
 } else {
-  define symbol MBED_RAM_START = 0x20003200;
-  define symbol MBED_RAM_SIZE  = 0xCE00;
+  define symbol MBED_RAM_START = 0x20003710;
+  define symbol MBED_RAM_SIZE  = 0xC8F0;
 }
 
 define symbol MBED_RAM0_START = MBED_RAM_START;
