@@ -116,6 +116,30 @@ ble_error_t GenericSecurityManager::setDatabaseFilepath(
     return BLE_ERROR_NONE;
 }
 
+ble_error_t GenericSecurityManager::setDatabaseFile(
+    const char *db_path
+) {
+    if (_db) {
+        delete _db;
+    }
+
+    FILE* db_file = FileSecurityDb::open_db_file(db_path);
+
+    if (db_file) {
+        _db = new (std::nothrow) FileSecurityDb(db_file);
+    } else {
+        _db = new (std::nothrow) MemorySecurityDb();
+    }
+
+    if (!_db) {
+        return BLE_ERROR_NO_MEM;
+    }
+
+    _db->restore();
+
+    return BLE_ERROR_NONE;
+}
+
 ble_error_t GenericSecurityManager::reset(void) {
     _pal.reset();
     SecurityManager::reset();
