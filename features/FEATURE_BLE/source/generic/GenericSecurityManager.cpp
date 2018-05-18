@@ -80,6 +80,8 @@ ble_error_t GenericSecurityManager::init(
         init_signing();
     }
 
+    init_resolving_list();
+
     _connection_monitor.set_connection_event_handler(this);
     _signing_monitor.set_signing_event_handler(this);
     _pal.set_event_handler(this);
@@ -116,26 +118,29 @@ ble_error_t GenericSecurityManager::setDatabaseFilepath(
     return BLE_ERROR_NONE;
 }
 
-ble_error_t GenericSecurityManager::setDatabaseFile(
+ble_error_t GenericSecurityManager::setDatabaseFilepath(
     const char *db_path
 ) {
-    if (_db) {
-        delete _db;
+    if (!_db) return BLE_ERROR_INITIALIZATION_INCOMPLETE;
+
+    /* operation only allowed with no connections active */
+    for (size_t i = 0; i < MAX_CONTROL_BLOCKS; i++) {
+        if (_control_blocks[i].connected) {
+            return BLE_ERROR_OPERATION_NOT_PERMITTED;
+        }
     }
 
-    FILE* db_file = FileSecurityDb::open_db_file(db_path);
-
-    if (db_file) {
-        _db = new (std::nothrow) FileSecurityDb(db_file);
-    } else {
-        _db = new (std::nothrow) MemorySecurityDb();
+    ble_error_t result = init_database(db_path);
+    if (result != BLE_ERROR_NONE) {
+        return result;
     }
 
-    if (!_db) {
-        return BLE_ERROR_NO_MEM;
+    result = init_database(db_path);
+    if (result != BLE_ERROR_NONE) {
+        return result;
     }
 
-    _db->restore();
+    init_resolving_list();
 
     return BLE_ERROR_NONE;
 }
