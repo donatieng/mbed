@@ -80,8 +80,6 @@ ble_error_t GenericSecurityManager::init(
         init_signing();
     }
 
-    init_resolving_list();
-
     _connection_monitor.set_connection_event_handler(this);
     _signing_monitor.set_signing_event_handler(this);
     _pal.set_event_handler(this);
