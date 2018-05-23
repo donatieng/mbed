@@ -116,28 +116,6 @@ ble_error_t GenericSecurityManager::setDatabaseFilepath(
     return BLE_ERROR_NONE;
 }
 
-ble_error_t GenericSecurityManager::setDatabaseFilepath(
-    const char *db_path
-) {
-    if (!_db) return BLE_ERROR_INITIALIZATION_INCOMPLETE;
-
-    /* operation only allowed with no connections active */
-    for (size_t i = 0; i < MAX_CONTROL_BLOCKS; i++) {
-        if (_control_blocks[i].connected) {
-            return BLE_ERROR_OPERATION_NOT_PERMITTED;
-        }
-    }
-
-    ble_error_t result = init_database(db_path);
-    if (result != BLE_ERROR_NONE) {
-        return result;
-    }
-
-    init_resolving_list();
-
-    return BLE_ERROR_NONE;
-}
-
 ble_error_t GenericSecurityManager::reset(void) {
     _pal.reset();
     SecurityManager::reset();
