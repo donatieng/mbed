@@ -6351,9 +6351,9 @@
             "NRF5x",
             "NRF52",
             "SDK_14_2",
-            "CORDIO",
-            "CORDIO_LL",
-            "SOFTDEVICE_NONE"
+            "NORDIC_SOFTDEVICE",
+            "SOFTDEVICE_COMMON",
+            "SOFTDEVICE_S132_FULL"
         ],
         "config": {
             "lf_clock_src": {
@@ -6468,10 +6468,9 @@
             "NRF5x",
             "NRF52",
             "SDK_14_2",
-            "SOFTDEVICE_NONE",
-            "CORDIO",
-            "CORDIO_LL",
-            "NORDIC_CORDIO"
+            "NORDIC_SOFTDEVICE",
+            "SOFTDEVICE_COMMON",
+            "SOFTDEVICE_S140_FULL"
         ],
         "config": {
             "lf_clock_src": {
