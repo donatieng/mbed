@@ -6881,8 +6881,7 @@
             "SERIAL",
             "SPI",
             "TRNG",
-            "FLASH",
-            "MPU"
+            "FLASH"
         ],
         "public": false,
         "supported_toolchains": ["GCC_ARM", "ARM", "IAR"],
