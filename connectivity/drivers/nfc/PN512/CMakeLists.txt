@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 target_include_directories(mbed-nfc
-    INTERFACE
+    PUBLIC
         ./include
         ./include/nfc
         ./include/nfc/controllers
@@ -11,10 +11,10 @@ target_include_directories(mbed-nfc
 )
 
 target_sources(mbed-nfc
-    INTERFACE
-        source/PN512Driver.cpp
-        source/PN512SPITransportDriver.cpp
-        source/PN512TransportDriver.cpp
+    PRIVATE
+        # source/PN512Driver.cpp
+        # source/PN512SPITransportDriver.cpp
+        # source/PN512TransportDriver.cpp
 
         source/transceiver/pn512.c
         source/transceiver/pn512_cmd.c
