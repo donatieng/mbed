@@ -3,6 +3,7 @@
 
 add_subdirectory(tech)
 add_subdirectory(transceiver)
+add_subdirectory(test)
 
 target_include_directories(mbed-nfc
     PUBLIC

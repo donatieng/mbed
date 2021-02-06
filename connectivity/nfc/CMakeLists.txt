@@ -5,6 +5,41 @@ cmake_minimum_required(VERSION 3.19.0 FATAL_ERROR)
 
 # DG hack for testing
 
+
+# Testing!
+# From https://github.com/google/googletest/blob/master/googletest/README.md
+
+# Download and unpack googletest at configure time
+configure_file(GoogleTest-CMakeLists.txt.in googletest-download/CMakeLists.txt)
+execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
+  RESULT_VARIABLE result
+  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/googletest-download )
+if(result)
+  message(FATAL_ERROR "CMake step for googletest failed: ${result}")
+endif()
+execute_process(COMMAND ${CMAKE_COMMAND} --build .
+  RESULT_VARIABLE result
+  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/googletest-download )
+if(result)
+  message(FATAL_ERROR "Build step for googletest failed: ${result}")
+endif()
+
+# Prevent overriding the parent project's compiler/linker
+# settings on Windows
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+
+# Add googletest directly to our build. This defines
+# the gtest and gtest_main targets.
+add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/googletest-src
+                 ${CMAKE_CURRENT_BINARY_DIR}/googletest-build
+                 EXCLUDE_FROM_ALL)
+
+# Now simply link against gtest or gtest_main as needed. Eg
+add_executable(munfc-test)
+target_compile_features(munfc-test PUBLIC cxx_std_17)
+target_link_libraries(munfc-test mbed-nfc gtest_main)
+add_test(NAME munfc-test COMMAND munfc-test)
+
 add_library(mbed-nfc STATIC)
 target_compile_features(mbed-nfc PUBLIC c_std_11)
 add_subdirectory(libraries)
