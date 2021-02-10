@@ -1,5 +1,5 @@
 #include "nfc_scheduler.h"
-#include "nfc_scheduler_timer.h"
+#include "fake_nfc_scheduler_timer.h"
 
 static uint32_t timer_value = 0;
 
