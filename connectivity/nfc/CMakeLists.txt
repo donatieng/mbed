@@ -34,10 +34,9 @@ add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/googletest-src
                  ${CMAKE_CURRENT_BINARY_DIR}/googletest-build
                  EXCLUDE_FROM_ALL)
 
-# Now simply link against gtest or gtest_main as needed. Eg
 add_executable(munfc-test)
 target_compile_features(munfc-test PUBLIC cxx_std_17)
-target_link_libraries(munfc-test mbed-nfc gtest_main)
+target_link_libraries(munfc-test mbed-nfc gtest_main gmock)
 add_test(NAME munfc-test COMMAND munfc-test)
 
 add_library(mbed-nfc STATIC)
