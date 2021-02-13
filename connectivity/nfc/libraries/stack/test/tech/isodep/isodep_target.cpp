@@ -57,7 +57,7 @@ protected:
 
     ac_buffer_t historical_bytes;
     std::vector<uint8_t> historical_bytes_vector;
-    testing::NiceMock<MockTransceiver> transceiver;
+    testing::StrictMock<MockTransceiver> transceiver;
     nfc_tech_isodep_target_t isodep_target;
 private:
     ac_istream_t _istream;
@@ -108,6 +108,30 @@ void IsoDepTargetTest::s_disconnected_cb(nfc_tech_isodep_t *pIsodep, bool desele
     static_cast<IsoDepTargetTest*>(pUserData)->disconnected(deselected);
 }
 
-TEST_F(IsoDepTargetTest, RATS) {
-    // Receive RATS
+TEST_F(IsoDepTargetTest, ATS_Good) {
+    // Set historical bytes
+    set_historical_bytes({0xAB, 0xCD, 0xEF});
+
+    // Populate valid RATS
+    // FSD Min is 256 -> FSDI is 8
+    // Set DID to 0
+    transceiver.set_read_bytes({0xE0 /* RATS command */, (8 << 4) | 0});
+
+    // Send ATS back
+    EXPECT_CALL(transceiver, transceive_wrapper()).WillOnce([&](){
+        EXPECT_EQ(true, transceiver.get_transceive_receive());
+        EXPECT_EQ(true, transceiver.get_transceive_transmit());
+        EXPECT_EQ(false, transceiver.get_transceive_repoll());
+        EXPECT_EQ(std::make_pair(true, true), transceiver.get_crc());
+
+        // Check ATS (we have set 3 historical bytes)
+        // Format: TL T0 TA(1) TB(1) TC(1)
+        // Our implementation supports FSC = 256; FSCI should be 8
+        // TA(1): Only same bit rate divisor supported, only D=1 supported
+        // TB(1): We support WFI = 14, SFGI = 2 - FIXME 14 is too big for NFC Forum compliance, will need to drop to 8
+        // TC(1): We don't support advanced protocol features, DOD or NAD
+        std::vector<uint8_t> ats = {8 /* Length*/, (7 << 4) | 8, 0x80,  (14 << 4) | 2, 0x00, 0xAB, 0xCD, 0xEF};
+        EXPECT_EQ(ats, transceiver.get_write_bytes());
+    });
+    EXPECT_EQ(NFC_OK, connect());
 }

@@ -89,11 +89,16 @@ void Transceiver::s_sleep(nfc_transceiver_t *pTransceiver, bool sleep) {
 }
 
 MockTransceiver::MockTransceiver() : Transceiver(nullptr, nullptr),
+    _crcOut(false), _crcIn(false),
     _timeout(0), _transceive_transmit(true), _transceive_receive(true), _transceive_repoll(false),
     _transceive_framing(nfc_framing_unknown),
     _last_byte_length(8), _first_byte_align(0) {
         ac_buffer_init(&_read_buffer, nullptr, 0);
     }
+
+std::pair<bool, bool> MockTransceiver::get_crc() {
+    return std::make_pair(_crcOut, _crcIn);
+}
 
 int MockTransceiver::get_timeout() const {
     return _timeout;
@@ -121,9 +126,15 @@ std::vector<uint8_t> MockTransceiver::get_write_bytes() const {
 
 void MockTransceiver::set_read_bytes(const std::vector<uint8_t>& read_bytes) {
     _read_bytes = read_bytes;
+    ac_buffer_init(&_read_buffer, _read_bytes.data(), _read_bytes.size());
 }
 
 //
+
+void MockTransceiver::set_crc(bool crcOut, bool crcIn) {
+    _crcOut = crcOut;
+    _crcIn = crcIn;
+}
 
 void MockTransceiver::set_timeout(int timeout) {
     _timeout = timeout;
@@ -141,6 +152,10 @@ void MockTransceiver::set_transceive_framing(nfc_framing_t framing) {
 
 void MockTransceiver::set_write(ac_buffer_t *pWriteBuf) {
     _write_bytes.clear();
+
+    if(pWriteBuf == nullptr) {
+        return;
+    }
 
     ac_buffer_t cpy;
     ac_buffer_dup(&cpy, pWriteBuf);
@@ -171,6 +186,7 @@ void MockTransceiver::set_first_byte_align(size_t firstByteAlign) {
 
 void MockTransceiver::transceive() {
     _read_bytes.clear();
+    ac_buffer_init(&_read_buffer, nullptr, 0);
     transceive_wrapper();
     _timeout = 0;
     _transceive_transmit = _transceive_receive = true;
@@ -178,5 +194,4 @@ void MockTransceiver::transceive() {
     _write_bytes.clear();
     _last_byte_length = 8;
     _first_byte_align = 0;
-    ac_buffer_init(&_read_buffer, _read_bytes.data(), _read_bytes.size());
 }

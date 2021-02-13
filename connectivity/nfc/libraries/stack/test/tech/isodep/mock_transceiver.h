@@ -1,6 +1,7 @@
 #include "transceiver/transceiver.h"
 #include "gmock/gmock.h"
 #include <vector>
+#include <utility>
 
 // Bridge C-API to CPP
 class Transceiver : public nfc_transceiver_t {
@@ -46,6 +47,7 @@ private:
 class MockTransceiver : public Transceiver {
 public:
     MockTransceiver();
+    std::pair<bool, bool> get_crc();
     int get_timeout() const;
     bool get_transceive_transmit() const;
     bool get_transceive_receive() const;
@@ -56,7 +58,7 @@ public:
 
     MOCK_METHOD(void, set_protocols, (nfc_tech_t initiators, nfc_tech_t targets, polling_options_t options), (override));
     MOCK_METHOD(void, poll, (), (override));
-    MOCK_METHOD(void, set_crc, (bool crcOut, bool crcIn), (override));
+    virtual void set_crc(bool crcOut, bool crcIn) override;
     virtual void set_timeout(int timeout) override;
     virtual void set_transceive_options(bool transmit, bool receive, bool repoll) override;
     virtual void set_transceive_framing(nfc_framing_t framing) override;
@@ -74,6 +76,8 @@ public:
 
 private:
     void reset();
+    bool _crcOut;
+    bool _crcIn;
     int _timeout;
     bool _transceive_transmit;
     bool _transceive_receive;

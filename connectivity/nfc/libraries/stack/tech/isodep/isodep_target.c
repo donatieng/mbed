@@ -20,7 +20,7 @@
  * \author Donatien Garnier
  */
 
-#define __DEBUG__ 0
+#define __DEBUG__ 4
 #ifndef __MODULE__
 #define __MODULE__ "isodep_target.c"
 #endif
