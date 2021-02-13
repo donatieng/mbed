@@ -83,7 +83,7 @@ enum __dep_type {
 static void dep_init(nfc_tech_isodep_target_t *pIsodepTarget);
 static bool dep_ready(nfc_tech_isodep_target_t *pIsodepTarget);
 
-static void dep_req_information(nfc_tech_isodep_target_t *pIsodepTarget, ac_buffer_t *pReq, bool moreInformation, uint8_t blockNumber);
+static nfc_err_t dep_req_information(nfc_tech_isodep_target_t *pIsodepTarget, ac_buffer_t *pReq, bool moreInformation, uint8_t blockNumber);
 static void dep_req_response(nfc_tech_isodep_target_t *pIsodepTarget, bool ack, uint8_t blockNumber);
 static void dep_req_supervisory(nfc_tech_isodep_target_t *pIsodepTarget, bool wtxNDeselect, uint8_t wtxm);
 
@@ -205,10 +205,16 @@ bool dep_ready(nfc_tech_isodep_target_t *pIsodepTarget)
     }
 }
 
-void dep_req_information(nfc_tech_isodep_target_t *pIsodepTarget, ac_buffer_t *pReq, bool moreInformation, uint8_t blockNumber)
+nfc_err_t dep_req_information(nfc_tech_isodep_target_t *pIsodepTarget, ac_buffer_t *pReq, bool moreInformation, uint8_t blockNumber)
 {
     (void) blockNumber;
 
+    // If the initiator tries to send us data but we're not ready to receive it, the only recovery 
+    // mechanism we have is ignoring the frame and going back to receive mode, so treat as a protocol error
+    if (pIsodepTarget->dep.pReqStream == NULL) {
+        return NFC_ERR_PROTOCOL;
+    }
+    
     pIsodepTarget->dep.blockNumber++;
     pIsodepTarget->dep.blockNumber %= 2;
 
@@ -222,14 +228,13 @@ void dep_req_information(nfc_tech_isodep_target_t *pIsodepTarget, ac_buffer_t *p
         pIsodepTarget->dep.pResStream = NULL;
         pIsodepTarget->dep.resCb((nfc_tech_isodep_t *)pIsodepTarget, NFC_OK, pIsodepTarget->dep.pResUserData);
     }
-    if (pIsodepTarget->dep.pReqStream != NULL) {
-        // Pull more
-        ac_ostream_push(pIsodepTarget->dep.pReqStream, pReq, !moreInformation);
-        if (!moreInformation) {
-            //Got the full frame
-            pIsodepTarget->dep.pReqStream = NULL;
-            pIsodepTarget->dep.reqCb((nfc_tech_isodep_t *)pIsodepTarget, NFC_OK, pIsodepTarget->dep.pReqUserData);
-        }
+
+    // Pull more
+    ac_ostream_push(pIsodepTarget->dep.pReqStream, pReq, !moreInformation);
+    if (!moreInformation) {
+        //Got the full frame
+        pIsodepTarget->dep.pReqStream = NULL;
+        pIsodepTarget->dep.reqCb((nfc_tech_isodep_t *)pIsodepTarget, NFC_OK, pIsodepTarget->dep.pReqUserData);
     }
 
     // Update state
@@ -434,7 +439,12 @@ nfc_err_t command_dep_req(nfc_tech_isodep_target_t *pIsodepTarget)
     uint8_t wtxm = 0;
     switch (PCB_TYPE(pcb)) {
         case I_BLOCK_PCB:
-            dep_req_information(pIsodepTarget, pIsodepTarget->commands.pReq, PCB_CHAINING(pcb), PCB_BLOCK_TOGGLE(pcb));
+            {
+                nfc_err_t ret = dep_req_information(pIsodepTarget, pIsodepTarget->commands.pReq, PCB_CHAINING(pcb), PCB_BLOCK_TOGGLE(pcb));
+                if(ret) {
+                    return NFC_ERR_PROTOCOL;
+                }
+            }
             break;
         case R_BLOCK_PCB:
             dep_req_response(pIsodepTarget, !PCB_NACK(pcb), PCB_BLOCK_TOGGLE(pcb));
