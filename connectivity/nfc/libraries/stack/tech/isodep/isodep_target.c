@@ -70,8 +70,7 @@
 //Parameters
 #define FSC 256 //Maximum frame size the PICC (us) can receive -- TODO should be a parameter at some point -- linked to PN512 buffer
 #define SFGI 2 //Guard time ~ 1.2ms
-//#define FWI 6 //Max time before answer is ~ 19.3ms
-#define FWI 14 //Max time before answer is ~ 19.3ms
+#define FWI 8 //Max time before answer is ~ 77.3ms
 
 typedef enum __dep_type dep_type_t;
 enum __dep_type {
