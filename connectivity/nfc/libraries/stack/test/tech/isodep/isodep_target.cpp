@@ -136,7 +136,7 @@ TEST_F(IsoDepTargetTest, ATS_Good) {
     EXPECT_EQ(NFC_OK, connect());
 }
 
-TEST_F(IsoDepTargetTest, ATS_Bad) {
+TEST_F(IsoDepTargetTest, ATS_Bad_Recover) {
     // Set historical bytes
     set_historical_bytes({0xAB, 0xCD, 0xEF});
 
@@ -166,4 +166,27 @@ TEST_F(IsoDepTargetTest, ATS_Bad) {
     });
 
     transceiver.transceive_done(NFC_OK);
+}
+
+TEST_F(IsoDepTargetTest, ATS_Bad_Drop_Field) {
+    // Set historical bytes
+    set_historical_bytes({0xAB, 0xCD, 0xEF});
+
+    // Populate incorrect RATS
+    transceiver.set_read_bytes({0xF0 /* Bad RATS command */, (8 << 4) | 0});
+
+    // Transceiver should go back to receive mode
+    EXPECT_CALL(transceiver, transceive_wrapper()).WillOnce([&](){
+        EXPECT_EQ(true, transceiver.get_transceive_receive());
+        EXPECT_EQ(false, transceiver.get_transceive_transmit()); // Note this is false!
+        EXPECT_EQ(false, transceiver.get_transceive_repoll());
+        EXPECT_EQ(std::make_pair(true, true), transceiver.get_crc());
+
+        // Now let's say the field drops :(
+    });
+
+    EXPECT_EQ(NFC_OK, connect());
+
+    EXPECT_CALL(*this, disconnected(/*deselected: */false));
+    transceiver.transceive_done(NFC_ERR_FIELD);
 }
