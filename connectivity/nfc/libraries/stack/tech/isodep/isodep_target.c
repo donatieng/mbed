@@ -198,7 +198,8 @@ bool dep_ready(nfc_tech_isodep_target_t *pIsodepTarget)
         return true;
     }
 
-    if ((pIsodepTarget->dep.pResStream != NULL)) {
+    if ((pIsodepTarget->dep.pResStream != NULL) 
+        || (pIsodepTarget->dep.frameState != ISO_DEP_TARGET_DEP_FRAME_WTX_RECEIVED)) { // We can only wait if we've received at WTX response
         return true;
     } else {
         return false;
@@ -240,6 +241,8 @@ nfc_err_t dep_req_information(nfc_tech_isodep_target_t *pIsodepTarget, ac_buffer
     // Update state
     pIsodepTarget->dep.frameState = ISO_DEP_TARGET_DEP_FRAME_INFORMATION_RECEIVED;
     pIsodepTarget->dep.chaining = moreInformation;
+
+    return NFC_OK;
 }
 
 void dep_req_response(nfc_tech_isodep_target_t *pIsodepTarget, bool ack, uint8_t blockNumber)
@@ -442,7 +445,7 @@ nfc_err_t command_dep_req(nfc_tech_isodep_target_t *pIsodepTarget)
             {
                 nfc_err_t ret = dep_req_information(pIsodepTarget, pIsodepTarget->commands.pReq, PCB_CHAINING(pcb), PCB_BLOCK_TOGGLE(pcb));
                 if(ret) {
-                    return NFC_ERR_PROTOCOL;
+                    return ret;
                 }
             }
             break;
