@@ -135,3 +135,35 @@ TEST_F(IsoDepTargetTest, ATS_Good) {
     });
     EXPECT_EQ(NFC_OK, connect());
 }
+
+TEST_F(IsoDepTargetTest, ATS_Bad) {
+    // Set historical bytes
+    set_historical_bytes({0xAB, 0xCD, 0xEF});
+
+    // Populate incorrect RATS
+    transceiver.set_read_bytes({0xF0 /* Bad RATS command */, (8 << 4) | 0});
+
+    // Transceiver should go back to receive mode
+    EXPECT_CALL(transceiver, transceive_wrapper()).WillOnce([&](){
+        EXPECT_EQ(true, transceiver.get_transceive_receive());
+        EXPECT_EQ(false, transceiver.get_transceive_transmit()); // Note this is false!
+        EXPECT_EQ(false, transceiver.get_transceive_repoll());
+        EXPECT_EQ(std::make_pair(true, true), transceiver.get_crc());
+
+        // Now if we receive a good RATS we should recover
+        transceiver.set_read_bytes({0xE0, (8 << 4) | 0});
+    });
+
+    EXPECT_EQ(NFC_OK, connect());
+    
+    EXPECT_CALL(transceiver, transceive_wrapper()).WillOnce([&](){
+        EXPECT_EQ(true, transceiver.get_transceive_receive());
+        EXPECT_EQ(true, transceiver.get_transceive_transmit());
+        EXPECT_EQ(false, transceiver.get_transceive_repoll());
+        EXPECT_EQ(std::make_pair(true, true), transceiver.get_crc());
+        std::vector<uint8_t> ats = {8 /* Length*/, (7 << 4) | 8, 0x80,  (14 << 4) | 2, 0x00, 0xAB, 0xCD, 0xEF};
+        EXPECT_EQ(ats, transceiver.get_write_bytes());
+    });
+
+    transceiver.transceive_done(NFC_OK);
+}

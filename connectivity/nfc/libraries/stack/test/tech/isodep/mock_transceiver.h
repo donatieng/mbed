@@ -55,6 +55,7 @@ public:
     nfc_framing_t get_transceive_framing() const;
     std::vector<uint8_t> get_write_bytes() const;
     void set_read_bytes(const std::vector<uint8_t>& read_bytes);
+    void transceive_done(nfc_err_t ret);
 
     MOCK_METHOD(void, set_protocols, (nfc_tech_t initiators, nfc_tech_t targets, polling_options_t options), (override));
     MOCK_METHOD(void, poll, (), (override));

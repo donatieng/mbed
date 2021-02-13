@@ -129,6 +129,11 @@ void MockTransceiver::set_read_bytes(const std::vector<uint8_t>& read_bytes) {
     ac_buffer_init(&_read_buffer, _read_bytes.data(), _read_bytes.size());
 }
 
+void MockTransceiver::transceive_done(nfc_err_t ret) {
+    // Call done callback
+    this->cb(this, ret, this->pUserData);
+}
+
 //
 
 void MockTransceiver::set_crc(bool crcOut, bool crcIn) {
