@@ -19,7 +19,48 @@
 
 #include "platform/platform.h"
 
+#include "platform/mbed_critical.h"
+
 #include "hal/gpio_api.h"
+
+#//define MBED_CONF_DRIVERS_POLYMORPHIC_DIGITALIN
+
+namespace mbed {
+
+// Forward declare DigitalIn
+class DigitalIn;
+
+namespace interface {
+
+#ifdef MBED_CONF_DRIVERS_POLYMORPHIC_DIGITALIN
+// Pure interface definition of DigitalIn
+struct DigitalIn {
+    virtual ~DigitalIn() = default;
+    virtual int read() = 0;
+    virtual void mode(PinMode pull) = 0;
+    virtual int is_connected() = 0;
+
+    /** An operator shorthand for read()
+     * \sa DigitalIn::read()
+     * @code
+     *      DigitalIn  button(BUTTON1);
+     *      DigitalOut led(LED1);
+     *      led = button;   // Equivalent to led.write(button.read())
+     * @endcode
+     */
+//    operator int() {
+//        return read();
+//    }
+};
+#else
+using DigitalIn = ::mbed::DigitalIn;
+#endif
+
+} // namespace interface
+} // namespace mbed
+
+
+// Existing interface inherit from DigitalIn if polymorphic flag enabled.
 
 namespace mbed {
 /**
@@ -51,8 +92,11 @@ namespace mbed {
  * }
  * @endcode
  */
-class DigitalIn {
-
+class DigitalIn final
+#ifdef MBED_CONF_DRIVERS_POLYMORPHIC_DIGITALIN
+: public interface::DigitalIn
+#endif
+  {
 public:
     /** Create a DigitalIn connected to the specified pin
      *
@@ -91,7 +135,11 @@ public:
      *
      *  @param pull PullUp, PullDown, PullNone, OpenDrain
      */
-    void mode(PinMode pull);
+    void mode(PinMode pull) {
+        core_util_critical_section_enter();
+        gpio_mode(&gpio, pull);
+        core_util_critical_section_exit();
+    }
 
     /** Return the output setting, represented as 0 or 1 (int)
      *
@@ -103,20 +151,6 @@ public:
     {
         // Thread safe / atomic HAL call
         return gpio_is_connected(&gpio);
-    }
-
-    /** An operator shorthand for read()
-     * \sa DigitalIn::read()
-     * @code
-     *      DigitalIn  button(BUTTON1);
-     *      DigitalOut led(LED1);
-     *      led = button;   // Equivalent to led.write(button.read())
-     * @endcode
-     */
-    operator int()
-    {
-        // Underlying read is thread safe
-        return read();
     }
 
 protected:

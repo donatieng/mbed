@@ -18,7 +18,73 @@
 #define MBED_DIGITALOUT_H
 
 #include "platform/platform.h"
+#include "platform/mbed_critical.h"
 #include "hal/gpio_api.h"
+
+#define MBED_CONF_DRIVERS_POLYMORPHIC_DIGITALOUT
+
+namespace mbed {
+
+// Forward declare DigitalIn
+class DigitalOut;
+
+namespace interface {
+
+#ifdef MBED_CONF_DRIVERS_POLYMORPHIC_DIGITALOUT
+// Pure interface definition of DigitalIn
+struct DigitalOut {
+    virtual ~DigitalOut() = default;
+    virtual void write(int value) = 0;
+    virtual int read() = 0;
+    virtual int is_connected() = 0;
+
+    /** A shorthand for write()
+     * \sa DigitalOut::write()
+     * @code
+     *      DigitalIn  button(BUTTON1);
+     *      DigitalOut led(LED1);
+     *      led = button;   // Equivalent to led.write(button.read())
+     * @endcode
+     */
+//    DigitalOut &operator= (int value)
+//    {
+//        // Underlying write is thread safe
+//        write(value);
+//        return *this;
+//    }
+//
+//    /** A shorthand for write() using the assignment operator which copies the
+//     * state from the DigitalOut argument.
+//     * \sa DigitalOut::write()
+//     */
+//    DigitalOut &operator= (DigitalOut &rhs) {
+//        core_util_critical_section_enter();
+//        write(rhs.read());
+//        core_util_critical_section_exit();
+//        return *this;
+//    }
+//
+//    /** A shorthand for read()
+//     * \sa DigitalOut::read()
+//     * @code
+//     *      DigitalIn  button(BUTTON1);
+//     *      DigitalOut led(LED1);
+//     *      led = button;   // Equivalent to led.write(button.read())
+//     * @endcode
+//     */
+//    operator int()
+//    {
+//        // Underlying call is thread safe
+//        return read();
+//    }
+
+};
+#else
+using DigitalOut = ::mbed::DigitalOut;
+#endif
+
+} // namespace interface
+} // namespace mbed
 
 namespace mbed {
 /**
@@ -46,7 +112,11 @@ namespace mbed {
  * }
  * @endcode
  */
-class DigitalOut {
+class DigitalOut final
+#ifdef MBED_CONF_DRIVERS_POLYMORPHIC_DIGITALOUT
+: public interface::DigitalOut
+#endif
+  {
 
 public:
     /** Create a DigitalOut connected to the specified pin
@@ -68,6 +138,10 @@ public:
     {
         // No lock needed in the constructor
         gpio_init_out_ex(&gpio, pin, value);
+    }
+
+    ~DigitalOut() {
+        gpio_free(&gpio);
     }
 
     /** Set the output, specified as 0 or 1 (int)
@@ -124,7 +198,12 @@ public:
      * state from the DigitalOut argument.
      * \sa DigitalOut::write()
      */
-    DigitalOut &operator= (DigitalOut &rhs);
+    DigitalOut &operator= (DigitalOut &rhs) {
+        core_util_critical_section_enter();
+        write(rhs.read());
+        core_util_critical_section_exit();
+        return *this;
+    }
 
     /** A shorthand for read()
      * \sa DigitalOut::read()
