@@ -18,9 +18,7 @@ target_sources(mbed-core
         source/BusInOut.cpp
         source/BusOut.cpp
         source/CAN.cpp
-        source/DigitalIn.cpp
         source/DigitalInOut.cpp
-        source/DigitalOut.cpp
         source/FlashIAP.cpp
         source/I2C.cpp
         source/I2CSlave.cpp
