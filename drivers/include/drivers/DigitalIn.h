@@ -23,7 +23,7 @@
 
 #include "hal/gpio_api.h"
 
-#//define MBED_CONF_DRIVERS_POLYMORPHIC_DIGITALIN
+#define MBED_CONF_DRIVERS_POLYMORPHIC_DIGITALIN
 
 namespace mbed {
 
