@@ -44,6 +44,44 @@
 #include "platform/Transaction.h"
 #endif
 
+#define MBED_CONF_DRIVERS_POLYMORPHIC_SPI
+
+namespace mbed {
+
+// Forward declare SPI
+class SPI;
+
+namespace interface {
+
+#ifdef MBED_CONF_DRIVERS_POLYMORPHIC_SPI
+// Pure interface definition of SPI
+struct SPI {
+    virtual ~SPI() = default;
+    virtual void format(int bits, int mode = 0) = 0;
+    virtual void frequency(int hz = 1000000) = 0;
+    virtual int write(int value) = 0;
+    virtual int write(const char *tx_buffer, int tx_length, char *rx_buffer, int rx_length) = 0;
+    virtual void lock(void) = 0;
+    virtual void unlock(void) = 0;
+    virtual void select(void) = 0;
+    virtual void deselect(void) = 0;
+    virtual void set_default_write_value(char data) = 0;
+
+#if DEVICE_SPI_ASYNCH
+    virtual void abort_transfer() = 0;
+    virtual void clear_transfer_buffer() = 0;
+    virtual void abort_all_transfers() = 0;
+    virtual int set_dma_usage(DMAUsage usage) = 0;
+#endif
+
+};
+#else
+using SPI = ::mbed::SPI;
+#endif
+
+} // namespace interface
+} // namespace mbed
+
 namespace mbed {
 /**
  * \defgroup drivers_SPI SPI class
@@ -95,7 +133,11 @@ const use_gpio_ssel_t use_gpio_ssel;
  * }
  * @endcode
  */
-class SPI : private NonCopyable<SPI> {
+class SPI final : 
+#ifdef MBED_CONF_DRIVERS_POLYMORPHIC_SPI
+public interface::SPI, 
+#endif
+private NonCopyable<SPI> {
 
 public:
 
