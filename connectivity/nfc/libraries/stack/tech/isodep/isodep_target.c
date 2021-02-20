@@ -142,7 +142,7 @@ void nfc_tech_isodep_target_disconnect(nfc_tech_isodep_target_t *pIsodepTarget)
 
 nfc_err_t nfc_tech_isodep_target_transmit(nfc_tech_isodep_target_t *pIsodepTarget, ac_istream_t *pStream, nfc_tech_isodep_cb_t cb, void *pUserData)
 {
-    if (pIsodepTarget->dep.pReqStream != NULL) {
+    if (pIsodepTarget->dep.pResStream != NULL) {
         return NFC_ERR_BUSY;
     }
 
@@ -160,7 +160,7 @@ nfc_err_t nfc_tech_isodep_target_transmit(nfc_tech_isodep_target_t *pIsodepTarge
 
 nfc_err_t nfc_tech_isodep_target_receive(nfc_tech_isodep_target_t *pIsodepTarget, ac_ostream_t *pStream, nfc_tech_isodep_cb_t cb, void *pUserData)
 {
-    if (pIsodepTarget->dep.pResStream != NULL) {
+    if (pIsodepTarget->dep.pReqStream != NULL) {
         return NFC_ERR_BUSY;
     }
 
