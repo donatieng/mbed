@@ -194,14 +194,14 @@ TEST_F(IsoDepTargetTest, ATS_Bad_Drop_Field) {
     transceiver.transceive_done(NFC_ERR_FIELD);
 }
 
-TEST_F(IsoDepTargetTest, DEP_I_REQ_S_WTX_REQ) {
+TEST_F(IsoDepTargetTest, DEP_I_REQ_S_WTX_REQ_WTX_RESP) {
     // RATS
     transceiver.set_read_bytes({0xE0, (8 << 4) | 0});
 
     EXPECT_CALL(transceiver, transceive_wrapper()).WillOnce([&](){
         // Get the ATS answer (not checked here) and send the first DEP command
         // Send an I-block with a simple message
-        transceiver.set_read_bytes({(0 << 6) | 2 | 0 /* I Block, Blocker number 0 */, 0xAB, 0xCD, 0xEF});
+        transceiver.set_read_bytes({(0 << 6) | 2 | 0 /* I Block, Block number 0 */, 0xAB, 0xCD, 0xEF});
     });
 
     std::vector<uint8_t> rx;
@@ -223,20 +223,27 @@ TEST_F(IsoDepTargetTest, DEP_I_REQ_S_WTX_REQ) {
         // = (256*16/(13.56E6))*(2^8) * 10 = 193 ms
         std::vector<uint8_t> wtx = {(3 << 6) | (3 << 4) | 2 /* S Block, WTX */, 10 /* WTXM */};
         EXPECT_EQ(wtx, transceiver.get_write_bytes());
+
+        // Send WTX response (which is the same as the request)
+        transceiver.set_read_bytes({(3 << 6) | (3 << 4) | 2 /* S Block, WTX */, 10 /* WTXM */});
     });
 
+    transceiver.transceive_done(NFC_OK);
+
+    // WTX response received - this should NOT trigger another transceive
+    // as we're waiting for the client to call transmit()
     transceiver.transceive_done(NFC_OK);
 }
 
 
-TEST_F(IsoDepTargetTest, DEP_I_REQ_I_RESP) {
+TEST_F(IsoDepTargetTest, DEP_I_REQ_I_RESP_I_REQ) {
     // RATS
     transceiver.set_read_bytes({0xE0, (8 << 4) | 0});
 
     EXPECT_CALL(transceiver, transceive_wrapper()).WillOnce([&](){
         // Get the ATS answer (not checked here) and send the first DEP command
         // Send an I-block with a simple message
-        transceiver.set_read_bytes({(0 << 6) | 2 | 0 /* I Block, Blocker number 0 */, 0xAB, 0xCD, 0xEF});
+        transceiver.set_read_bytes({(0 << 6) | 2 | 0 /* I Block, Block number 0 */, 0xAB, 0xCD, 0xEF});
     });
 
     std::vector<uint8_t> rx;
@@ -247,7 +254,8 @@ TEST_F(IsoDepTargetTest, DEP_I_REQ_I_RESP) {
 
     EXPECT_CALL(*this, receive_done(NFC_OK)).WillOnce([&](){
         // We have received a message (not checked here), now respond
-        transmit(tx);
+        EXPECT_EQ(NFC_OK, transmit(tx));
+        EXPECT_EQ(NFC_OK, receive(rx)); // need to setup receiving again
     });
 
     EXPECT_EQ(NFC_OK, connect());
@@ -256,11 +264,67 @@ TEST_F(IsoDepTargetTest, DEP_I_REQ_I_RESP) {
     EXPECT_CALL(transceiver, transceive_wrapper()).WillOnce([&](){
         // The target's block number is initialized to 1 and toggled on reception of a valid I-Block
         // Therefore we should respond with a 0 block number
-        std::vector<uint8_t> iblock = {(0 << 6) | 2 | 0 /* I Block, Blocker number 0 */, 0x12, 0x34, 0x56};
+        std::vector<uint8_t> iblock = {(0 << 6) | 2 | 0 /* I Block, Block number 0 */, 0x12, 0x34, 0x56};
         EXPECT_EQ(iblock, transceiver.get_write_bytes());
+
+        // The reader then sends an I-Block to acknowledge reception (block number is toggled)
+        transceiver.set_read_bytes({(0 << 6) | 2 | 1 /* I Block, Block number 1 */});
+    });
+
+    // Will trigger the above
+    transceiver.transceive_done(NFC_OK);
+
+    EXPECT_CALL(*this, transmit_done(NFC_OK));
+    EXPECT_CALL(*this, receive_done(NFC_OK));
+
+    // Receive the I-Block response, this should trigger a WTX request but we don't care!
+    EXPECT_CALL(transceiver, transceive_wrapper());
+
+    transceiver.transceive_done(NFC_OK);
+}
+
+TEST_F(IsoDepTargetTest, DEP_I_REQ_S_WTX_REQ_S_WTX_RESP_I_RESP) {
+    // RATS
+    transceiver.set_read_bytes({0xE0, (8 << 4) | 0});
+
+    EXPECT_CALL(transceiver, transceive_wrapper()).WillOnce([&](){
+        // Get the ATS answer (not checked here) and send the first DEP command
+        // Send an I-block with a simple message
+        transceiver.set_read_bytes({(0 << 6) | 2 | 0 /* I Block, Block number 0 */, 0xAB, 0xCD, 0xEF});
+    });
+
+    std::vector<uint8_t> rx;
+
+    // Make sure we are setup to receive the first piece of data
+    EXPECT_EQ(NFC_OK, receive(rx));
+
+    EXPECT_CALL(*this, receive_done(NFC_OK));
+
+    EXPECT_EQ(NFC_OK, connect());
+
+    EXPECT_CALL(transceiver, transceive_wrapper()).WillOnce([&](){
+        // WTX request not checked here
+        // Send WTX response (which is the same as the request)
+        transceiver.set_read_bytes({(3 << 6) | (3 << 4) | 2 /* S Block, WTX */, 10 /* WTXM */});
     });
 
     transceiver.transceive_done(NFC_OK);
+
+    // WTX response received - this should NOT trigger another transceive
+    // as we're waiting for the client to call transmit()
+    transceiver.transceive_done(NFC_OK);
+    
+    // Now send something
+    std::vector<uint8_t> tx = {0x12, 0x34, 0x56};
+
+    EXPECT_CALL(transceiver, transceive_wrapper()).WillOnce([&](){
+        // The target's block number is initialized to 1 and toggled on reception of a valid I-Block
+        // Therefore we should respond with a 0 block number
+        std::vector<uint8_t> iblock = {(0 << 6) | 2 | 0 /* I Block, Block number 0 */, 0x12, 0x34, 0x56};
+        EXPECT_EQ(iblock, transceiver.get_write_bytes());
+    });
+
+    EXPECT_EQ(NFC_OK, transmit(tx)); // This should trigger a transceive
 }
 
 
