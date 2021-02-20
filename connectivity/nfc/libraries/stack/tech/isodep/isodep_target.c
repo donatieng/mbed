@@ -193,16 +193,16 @@ void dep_init(nfc_tech_isodep_target_t *pIsodepTarget)
 
 bool dep_ready(nfc_tech_isodep_target_t *pIsodepTarget)
 {
-    //Anything to send back?
-    if (pIsodepTarget->dep.frameState != ISO_DEP_TARGET_DEP_FRAME_INFORMATION_RECEIVED) {
+    // We can only NOT send something back if we've received a WTX response
+    if (pIsodepTarget->dep.frameState != ISO_DEP_TARGET_DEP_FRAME_WTX_RECEIVED) {
         return true;
     }
 
-    if ((pIsodepTarget->dep.pResStream != NULL) 
-        || (pIsodepTarget->dep.frameState != ISO_DEP_TARGET_DEP_FRAME_WTX_RECEIVED)) { // We can only wait if we've received at WTX response
-        return true;
-    } else {
+    // If we've received a WTX response, we won't send something if we have nothing to transmit
+    if (pIsodepTarget->dep.pResStream == NULL) {
         return false;
+    } else {
+        return true;
     }
 }
 
