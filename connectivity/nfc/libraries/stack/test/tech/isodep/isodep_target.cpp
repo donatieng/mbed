@@ -635,5 +635,3 @@ TEST_P(IsoDepTargetTestFsdi, DEP_I_REQ_CHAINING_I_RESP_R_ACK_I_RESP_I_REQ) {
 }
 
 INSTANTIATE_TEST_SUITE_P(IsoDepTargetTestFsdiRange, IsoDepTargetTestFsdi, testing::Range<uint8_t>(0, 10)); // 9+ is RFU, so test 0-9 included
-
-// Deselection
