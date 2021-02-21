@@ -626,6 +626,12 @@ void command_transceiver_cb(nfc_transceiver_t *pTransceiver, nfc_err_t ret, void
         return;
     }
 
+    if (ret == NFC_ERR_FIELD) {
+        NFC_WARN("Lost initiator");
+        dep_disconnected(pIsodepTarget, false);
+        return;
+    }
+
     if (pIsodepTarget->dep.frameState == ISO_DEP_TARGET_DEP_FRAME_DESELECT_SENT) {
         NFC_DBG("Deselect sent and re-polled: %u", ret);
         //We are now disconnected (deselected)
@@ -645,11 +651,7 @@ void command_transceiver_cb(nfc_transceiver_t *pTransceiver, nfc_err_t ret, void
     transceiver_set_write(pTransceiver, NULL);
     transceiver_set_transceive_options(pTransceiver, false, true, false);
 
-    if (ret == NFC_ERR_FIELD) {
-        NFC_WARN("Lost initiator");
-        dep_disconnected(pIsodepTarget, false);
-        return;
-    } else if (ret) {
+    if (ret) {
         //We should ignore this error and wait for another frame
         NFC_WARN("Got invalid frame (error %d)", ret);
 

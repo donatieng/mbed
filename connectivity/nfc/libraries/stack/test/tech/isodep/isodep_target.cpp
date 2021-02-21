@@ -195,6 +195,66 @@ TEST_F(IsoDepTargetTest, ATS_Bad_Drop_Field) {
     transceiver.transceive_done(NFC_ERR_FIELD);
 }
 
+TEST_F(IsoDepTargetTest, ATS_DESELECT_ATS) {
+    // Populate valid RATS
+    transceiver.set_read_bytes({0xE0 /* RATS command */, (8 << 4) | 0});
+
+    // Send ATS back
+    EXPECT_CALL(transceiver, transceive_wrapper()).WillOnce([&](){
+        // The reader deselects us
+        transceiver.set_read_bytes({(3 << 6) | (0 << 4) | 2 /* S Block, Deselect */});
+    });
+
+    EXPECT_EQ(NFC_OK, connect());
+
+    // Send deselect response
+    EXPECT_CALL(transceiver, transceive_wrapper()).WillOnce([&](){
+        EXPECT_EQ(false, transceiver.get_transceive_receive()); // Note this is false
+        EXPECT_EQ(true, transceiver.get_transceive_transmit());
+        EXPECT_EQ(true, transceiver.get_transceive_repoll()); // Note this is true - the PICC is halted
+        EXPECT_EQ(std::make_pair(true, true), transceiver.get_crc());
+
+        std::vector<uint8_t> deselect = {(3 << 6) | (0 << 4) | 2 /* S Block, Deselect */};
+        EXPECT_EQ(deselect, transceiver.get_write_bytes());
+
+        // We've asked the transceiver to halt the PICC, so the next command received is the RATS
+        transceiver.set_read_bytes({0xE0 /* RATS command */, (8 << 4) | 0});
+    });
+
+    transceiver.transceive_done(NFC_OK);
+    
+    // The PICC is successfully deselected and re-selected
+    EXPECT_CALL(*this, disconnected(/*deselected: */true));
+
+    transceiver.transceive_done(NFC_OK);
+}
+
+TEST_F(IsoDepTargetTest, ATS_DESELECT_Drop_Field) {
+    // Populate valid RATS
+    transceiver.set_read_bytes({0xE0 /* RATS command */, (8 << 4) | 0});
+
+    // Send ATS back
+    EXPECT_CALL(transceiver, transceive_wrapper()).WillOnce([&](){
+        // The reader deselects us
+        transceiver.set_read_bytes({(3 << 6) | (0 << 4) | 2 /* S Block, Deselect */});
+    });
+
+    EXPECT_EQ(NFC_OK, connect());
+
+    // Send deselect response
+    EXPECT_CALL(transceiver, transceive_wrapper()).WillOnce([&](){
+        // Not checked here (see above)
+        // The PICC is never re-selected and the field drops
+    });
+
+    transceiver.transceive_done(NFC_OK);
+    
+    // The PICC is not successfully deselected and reselected
+    EXPECT_CALL(*this, disconnected(/*deselected: */false));
+
+    transceiver.transceive_done(NFC_ERR_FIELD);
+}
+
 TEST_F(IsoDepTargetTest, DEP_I_REQ_S_WTX_REQ_WTX_RESP) {
     // RATS
     transceiver.set_read_bytes({0xE0, (8 << 4) | 0});
