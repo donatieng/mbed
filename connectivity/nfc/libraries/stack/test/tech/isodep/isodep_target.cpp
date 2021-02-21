@@ -26,7 +26,7 @@ protected:
     }
 
     void TearDown() override {
-
+        
     }
 
     void set_historical_bytes(const std::vector<uint8_t>& data) {
@@ -225,8 +225,20 @@ TEST_F(IsoDepTargetTest, ATS_DESELECT_ATS) {
     
     // The PICC is successfully deselected and re-selected
     EXPECT_CALL(*this, disconnected(/*deselected: */true));
-
+    
     transceiver.transceive_done(NFC_OK);
+
+    EXPECT_CALL(transceiver, transceive_wrapper()).WillOnce([&](){
+        EXPECT_EQ(true, transceiver.get_transceive_receive());
+        EXPECT_EQ(true, transceiver.get_transceive_transmit());
+        EXPECT_EQ(false, transceiver.get_transceive_repoll());
+        EXPECT_EQ(std::make_pair(true, true), transceiver.get_crc());
+        std::vector<uint8_t> ats = {5 /* Length*/, (7 << 4) | 8, 0x80, (8 << 4) | 2, 0x00};
+        EXPECT_EQ(ats, transceiver.get_write_bytes());
+    });
+
+    // We can now re-connect
+    EXPECT_EQ(NFC_OK, connect());
 }
 
 TEST_F(IsoDepTargetTest, ATS_DESELECT_Drop_Field) {
