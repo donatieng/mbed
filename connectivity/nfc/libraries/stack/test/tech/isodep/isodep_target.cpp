@@ -382,12 +382,15 @@ TEST_F(IsoDepTargetTest, DEP_CHAINING_I_REQ_R_ACK_I_REQ_I_RESP) {
     transceiver.transceive_done(NFC_OK);
 }
 
-TEST_F(IsoDepTargetTest, DEP_I_REQ_CHAINING_I_RESP_R_ACK_I_RESP_I_REQ) {
+class IsoDepTargetTestFsdi : public IsoDepTargetTest, public testing::WithParamInterface<uint8_t> {
+};
+
+TEST_P(IsoDepTargetTestFsdi, DEP_I_REQ_CHAINING_I_RESP_R_ACK_I_RESP_I_REQ) {
     // RATS
-    const uint8_t fsdi = 0;
+    uint8_t fsdi = GetParam();
     const size_t fsdi_to_fsd[] = {16, 24, 32, 40, 48, 64, 96, 128, 256};
-    const size_t fsd = (fsdi >= 9)?fsdi_to_fsd[8]:fsdi_to_fsd[fsdi];
-    transceiver.set_read_bytes({0xE0, (fsdi << 4) | 0});
+    size_t fsd = (fsdi >= 9)?fsdi_to_fsd[8]:fsdi_to_fsd[fsdi];
+    transceiver.set_read_bytes({0xE0, static_cast<uint8_t>((fsdi << 4) | 0)});
 
     EXPECT_CALL(transceiver, transceive_wrapper()).WillOnce([&](){
         // Get the ATS answer (not checked here) and send the first DEP command
@@ -455,5 +458,7 @@ TEST_F(IsoDepTargetTest, DEP_I_REQ_CHAINING_I_RESP_R_ACK_I_RESP_I_REQ) {
 
     transceiver.transceive_done(NFC_OK);
 }
+
+INSTANTIATE_TEST_SUITE_P(IsoDepTargetTestFsdiRange, IsoDepTargetTestFsdi, testing::Range<uint8_t>(0, 10)); // 9+ is RFU, so test 0-9 included
 
 // Deselection
