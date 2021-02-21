@@ -1,3 +1,6 @@
+// Std lib
+#include <algorithm>
+
 // Google Test
 #include "gtest/gtest.h"
 
@@ -378,6 +381,77 @@ TEST_F(IsoDepTargetTest, DEP_CHAINING_I_REQ_R_ACK_I_REQ_I_RESP) {
     });
 
     // Will trigger the receive_done() call above
+    transceiver.transceive_done(NFC_OK);
+}
+
+TEST_F(IsoDepTargetTest, DEP_I_REQ_CHAINING_I_RESP_R_ACK_I_RESP_I_REQ) {
+    // RATS
+    const uint8_t fsdi = 0;
+    const size_t fsdi_to_fsd[] = {16, 24, 32, 40, 48, 64, 96, 128, 256};
+    const size_t fsd = (fsdi >= 9)?fsdi_to_fsd[8]:fsdi_to_fsd[fsdi];
+    transceiver.set_read_bytes({0xE0, (fsdi << 4) | 0});
+
+    EXPECT_CALL(transceiver, transceive_wrapper()).WillOnce([&](){
+        // Get the ATS answer (not checked here) and send the first DEP command
+        // Send an I-block with a simple message
+        transceiver.set_read_bytes({(0 << 6) | 2 | 0 /* I Block, Block number 0 */, 0xAB, 0xCD, 0xEF});
+    });
+
+    std::vector<uint8_t> rx;
+    std::vector<uint8_t> tx;
+
+    // Populate tx so that it just doesn't fit in a single frame
+    // FSD is the limit for the full frame (including PCB, and CRC)
+    // We are not using CID and NAD so the maximum payload
+    // that fits in a single I-Block is (FSD - 3)
+    // So we're sending FSD - 3 + 1 bytes
+    for(size_t i = 0; i < (fsd - 3) + 1; i++) {
+        tx.push_back(i);
+    }
+
+    // Make sure we are setup to receive the first piece of data
+    EXPECT_EQ(NFC_OK, receive(rx));
+
+    EXPECT_CALL(*this, receive_done(NFC_OK)).WillOnce([&](){
+        // We have received a message (not checked here), now respond
+        EXPECT_EQ(NFC_OK, transmit(tx));
+        EXPECT_EQ(NFC_OK, receive(rx)); // need to setup receiving again
+    });
+
+    EXPECT_EQ(NFC_OK, connect());
+
+    // Check that we've responded with the correct I-block
+    EXPECT_CALL(transceiver, transceive_wrapper()).WillOnce([&](){
+        // The target's block number is initialized to 1 and toggled on reception of a valid I-Block
+        // Therefore we should respond with a 0 block number
+        std::vector<uint8_t> iblock = {(0 << 6) | (1 << 4) | 2 | 0 /* I Block, Chaining, Block number 0 */};
+        std::copy(tx.cbegin(), tx.cend() - 1, std::back_inserter(iblock));
+        EXPECT_EQ(iblock, transceiver.get_write_bytes());
+
+        // The reader then sends an R-ACK Block to acknowledge reception (block number is toggled)
+        transceiver.set_read_bytes({(2 << 6) | (1 << 5) | (0 << 4) | 2 | 1 /* R Block, ACK, Block number 1 */});
+    });
+
+    // Will trigger the above
+    transceiver.transceive_done(NFC_OK);
+
+   // Check that we've responded with the correct I-block
+    EXPECT_CALL(transceiver, transceive_wrapper()).WillOnce([&](){
+        // The target's block number is currently set to 0 and toggled on reception of a valid R-Block
+        // Therefore we should respond with a 1 block number
+        std::vector<uint8_t> iblock = {(0 << 6) | (0 << 4) | 2 | 1 /* I Block, No chaining, Block number 1 */, *(tx.cend() - 1) /* last byte */};
+        EXPECT_EQ(iblock, transceiver.get_write_bytes());
+
+        // The reader then sends an I Block to acknowledge reception (block number is toggled)
+        transceiver.set_read_bytes({(0 << 6) | 2 | 0 /* I Block, Block number 0 */, 0xAA, 0xBB});
+    });
+
+    EXPECT_CALL(*this, transmit_done(NFC_OK));
+    EXPECT_CALL(*this, receive_done(NFC_OK));
+
+    // Receive the I-Block response, this should trigger a WTX request but we don't care!
+    EXPECT_CALL(transceiver, transceive_wrapper());
+
     transceiver.transceive_done(NFC_OK);
 }
 
