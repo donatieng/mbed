@@ -76,9 +76,7 @@ private:
         size_t length = std::min(maxLength, _istream_bytes->size() - _istream_pos);
         ac_buffer_init(pDataIn, _istream_bytes->data() + _istream_pos, length); 
         _istream_pos += length;
-        if(_istream_pos == _istream_bytes->size()) {
-            *pClose = true;
-        }
+        *pClose = (_istream_pos == _istream_bytes->size());
     }
 
     void ac_ostream_fn(ac_buffer_t *pDataOut, bool closed) {
@@ -435,7 +433,7 @@ TEST_F(IsoDepTargetTest, DEP_I_REQ_CHAINING_I_RESP_R_ACK_I_RESP_I_REQ) {
     // Will trigger the above
     transceiver.transceive_done(NFC_OK);
 
-   // Check that we've responded with the correct I-block
+    // Check that we've responded with the correct I-block
     EXPECT_CALL(transceiver, transceive_wrapper()).WillOnce([&](){
         // The target's block number is currently set to 0 and toggled on reception of a valid R-Block
         // Therefore we should respond with a 1 block number
@@ -445,6 +443,9 @@ TEST_F(IsoDepTargetTest, DEP_I_REQ_CHAINING_I_RESP_R_ACK_I_RESP_I_REQ) {
         // The reader then sends an I Block to acknowledge reception (block number is toggled)
         transceiver.set_read_bytes({(0 << 6) | 2 | 0 /* I Block, Block number 0 */, 0xAA, 0xBB});
     });
+
+    // Will trigger the above
+    transceiver.transceive_done(NFC_OK);
 
     EXPECT_CALL(*this, transmit_done(NFC_OK));
     EXPECT_CALL(*this, receive_done(NFC_OK));

@@ -77,6 +77,7 @@ enum __dep_type {
     dep_type_information,
     dep_type_response,
     dep_type_supervisory,
+    dep_type_protocol_error
 };
 
 //Local functions
@@ -216,6 +217,7 @@ nfc_err_t dep_req_information(nfc_tech_isodep_target_t *pIsodepTarget, ac_buffer
         return NFC_ERR_PROTOCOL;
     }
     
+    // Rule D
     pIsodepTarget->dep.blockNumber++;
     pIsodepTarget->dep.blockNumber %= 2;
 
@@ -247,11 +249,14 @@ nfc_err_t dep_req_information(nfc_tech_isodep_target_t *pIsodepTarget, ac_buffer
 
 void dep_req_response(nfc_tech_isodep_target_t *pIsodepTarget, bool ack, uint8_t blockNumber)
 {
-    if (blockNumber != pIsodepTarget->dep.blockNumber) {
-        //Should be NACK
-        pIsodepTarget->dep.frameState = ISO_DEP_TARGET_DEP_FRAME_NACK_DIFF_BLOCK_NUMBER_RECEIVED;
+    if (blockNumber == pIsodepTarget->dep.blockNumber) {
+        pIsodepTarget->dep.frameState = ISO_DEP_TARGET_DEP_FRAME_ACK_NACK_SAME_BLOCK_NUMBER_RECEIVED;
     } else {
         if (ack) {
+            // Rule E
+            pIsodepTarget->dep.blockNumber++;
+            pIsodepTarget->dep.blockNumber %= 2;
+
             pIsodepTarget->dep.frameState = ISO_DEP_TARGET_DEP_FRAME_ACK_RECEIVED;
         } else {
             pIsodepTarget->dep.frameState = ISO_DEP_TARGET_DEP_FRAME_NACK_RECEIVED;
@@ -292,19 +297,19 @@ dep_type_t dep_res_type(nfc_tech_isodep_target_t *pIsodepTarget)
             break;
         case ISO_DEP_TARGET_DEP_FRAME_ACK_RECEIVED:
             if ((pIsodepTarget->dep.pResStream != NULL) && (pIsodepTarget->dep.chaining)) {
-                depType = dep_type_information;
+                depType = dep_type_information; // Rule 13
             } else {
-                depType = dep_type_supervisory; //WTX
+                depType = dep_type_protocol_error; // Protocol error
             }
             break;
-        case ISO_DEP_TARGET_DEP_FRAME_NACK_DIFF_BLOCK_NUMBER_RECEIVED:
-            depType = dep_type_response; //Should send ACK
-            break;
         case ISO_DEP_TARGET_DEP_FRAME_NACK_RECEIVED:
-            depType = dep_type_information;
+            depType = dep_type_response; // Rule 12, send ACK
+            break;
+        case ISO_DEP_TARGET_DEP_FRAME_ACK_NACK_SAME_BLOCK_NUMBER_RECEIVED:
+            depType = dep_type_information; // Rule 11, retransmit last block
             break;
         default:
-            depType = dep_type_supervisory; //ATN
+            depType = dep_type_protocol_error; // Protocol error
             break;
     }
     return depType;
@@ -313,7 +318,7 @@ dep_type_t dep_res_type(nfc_tech_isodep_target_t *pIsodepTarget)
 void dep_res_information(nfc_tech_isodep_target_t *pIsodepTarget, size_t maxLength, ac_buffer_t **ppRes, bool *pMoreInformation, uint8_t *pBlockNumber)
 {
     *pBlockNumber = pIsodepTarget->dep.blockNumber;
-    if (pIsodepTarget->dep.frameState != ISO_DEP_TARGET_DEP_FRAME_NACK_RECEIVED) {
+    if (pIsodepTarget->dep.frameState != ISO_DEP_TARGET_DEP_FRAME_ACK_NACK_SAME_BLOCK_NUMBER_RECEIVED) {
         if (pIsodepTarget->dep.pResStream != NULL) {
             bool lastFrame = true;
             ac_istream_pull(pIsodepTarget->dep.pResStream, &pIsodepTarget->dep.res, &lastFrame, maxLength);
@@ -373,7 +378,7 @@ void command_init(nfc_tech_isodep_target_t *pIsodepTarget)
     //pIsodepTarget->commands.did = 0;
     //pIsodepTarget->commands.didUsed = false;
     pIsodepTarget->commands.state = ISO_DEP_TARGET_COMMANDS_DISCONNECTED;
-    pIsodepTarget->commands.inPayloadSize = 0;
+    pIsodepTarget->commands.frameSizeDevice = 0;
 }
 
 nfc_err_t command_ats_req(nfc_tech_isodep_target_t *pIsodepTarget)
@@ -396,7 +401,7 @@ nfc_err_t command_ats_req(nfc_tech_isodep_target_t *pIsodepTarget)
     //pIsodepTarget->commands.did = DID(b);
 
     uint8_t fsdi = FSDI(b);
-    pIsodepTarget->commands.inPayloadSize = FSDI_TO_FSD(fsdi);
+    pIsodepTarget->commands.frameSizeDevice = FSDI_TO_FSD(fsdi);
 
     pIsodepTarget->commands.state = ISO_DEP_TARGET_COMMANDS_ATS_REQ_RECVD;
 
@@ -524,7 +529,7 @@ nfc_err_t command_dep_res(nfc_tech_isodep_target_t *pIsodepTarget)
     uint8_t wtxm = 0;
     uint8_t blockNumber = 0;
 
-    size_t maxLength = pIsodepTarget->commands.inPayloadSize - 1;
+    size_t maxLength = pIsodepTarget->commands.frameSizeDevice - 1 /* PCB */ - 2 /* CRC */;
 
     switch (dep_res_type(pIsodepTarget)) {
         case dep_type_information:
@@ -539,6 +544,9 @@ nfc_err_t command_dep_res(nfc_tech_isodep_target_t *pIsodepTarget)
             dep_res_supervisory(pIsodepTarget, &wtxNDeselect, &wtxm);
             pcb = BUILD_S_BLOCK_PCB(0, wtxNDeselect);
             break;
+        case dep_type_protocol_error:
+        default:
+            return NFC_ERR_PROTOCOL;
     }
 
     ac_buffer_builder_write_nu8(&pIsodepTarget->commands.respBldr, pcb);

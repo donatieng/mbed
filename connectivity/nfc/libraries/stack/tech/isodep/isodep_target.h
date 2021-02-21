@@ -58,7 +58,7 @@ struct nfc_tech_isodep_target {
             ISO_DEP_TARGET_DEP_FRAME_INFORMATION_RECEIVED,
             ISO_DEP_TARGET_DEP_FRAME_INFORMATION_SENT,
             ISO_DEP_TARGET_DEP_FRAME_NACK_RECEIVED,
-            ISO_DEP_TARGET_DEP_FRAME_NACK_DIFF_BLOCK_NUMBER_RECEIVED,
+            ISO_DEP_TARGET_DEP_FRAME_ACK_NACK_SAME_BLOCK_NUMBER_RECEIVED,
             ISO_DEP_TARGET_DEP_FRAME_NACK_SENT,
             ISO_DEP_TARGET_DEP_FRAME_ACK_RECEIVED,
             ISO_DEP_TARGET_DEP_FRAME_ACK_SENT,
@@ -79,7 +79,7 @@ struct nfc_tech_isodep_target {
             ISO_DEP_TARGET_COMMANDS_DEP_RES_SENT,
         } state;
 
-        size_t inPayloadSize;
+        size_t frameSizeDevice;
 
         ac_buffer_builder_t respBldr;
         uint8_t respBuf[32];
