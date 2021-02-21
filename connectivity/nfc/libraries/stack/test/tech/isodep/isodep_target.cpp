@@ -336,6 +336,57 @@ TEST_F(IsoDepTargetTest, DEP_I_REQ_I_RESP_R_NAK_I_RESP_I_REQ) {
     transceiver.transceive_done(NFC_OK);
 }
 
+TEST_F(IsoDepTargetTest, DEP_I_REQ_I_RESP_ERROR_I_RESP_I_REQ) {
+    // RATS
+    transceiver.set_read_bytes({0xE0, (8 << 4) | 0});
+
+    EXPECT_CALL(transceiver, transceive_wrapper()).WillOnce([&](){
+        // Get the ATS answer (not checked here) and send the first DEP command
+        // Send an I-block with a simple message
+        transceiver.set_read_bytes({(0 << 6) | 2 | 0 /* I Block, Block number 0 */, 0xAB, 0xCD, 0xEF});
+    });
+
+    std::vector<uint8_t> rx;
+    std::vector<uint8_t> tx = {0x12, 0x34, 0x56};
+
+    // Make sure we are setup to receive the first piece of data
+    EXPECT_EQ(NFC_OK, receive(rx));
+
+    EXPECT_CALL(*this, receive_done(NFC_OK)).WillOnce([&](){
+        // We have received a message (not checked here), now respond
+        EXPECT_EQ(NFC_OK, transmit(tx));
+        EXPECT_EQ(NFC_OK, receive(rx)); // need to setup receiving again
+    });
+
+    EXPECT_EQ(NFC_OK, connect());
+
+    EXPECT_CALL(transceiver, transceive_wrapper()).WillOnce([&](){
+        // Let's say the reader does get the message but it's lost/invalid
+        transceiver.set_read_bytes({});
+    });
+
+    // Will trigger the above
+    transceiver.transceive_done(NFC_OK);
+
+    // Check that we've retransmitted the correct I-block
+    EXPECT_CALL(transceiver, transceive_wrapper()).WillOnce([&](){
+        // The reader re-transmits the previous message which was lost/corrupted
+        transceiver.set_read_bytes({(0 << 6) | 2 | 1 /* I Block, Block number 1 */});
+    });
+
+    // The reader request is then lost/corrupted, so we only see a CRC error
+    // We should go back to receive mode
+    transceiver.transceive_done(NFC_ERR_CRC);
+
+    EXPECT_CALL(*this, transmit_done(NFC_OK));
+    EXPECT_CALL(*this, receive_done(NFC_OK));
+
+    // Receive the I-Block response, this should trigger a WTX request but we don't care!
+    EXPECT_CALL(transceiver, transceive_wrapper());
+
+    transceiver.transceive_done(NFC_OK);
+}
+
 TEST_F(IsoDepTargetTest, DEP_I_REQ_S_WTX_REQ_S_WTX_RESP_I_RESP) {
     // RATS
     transceiver.set_read_bytes({0xE0, (8 << 4) | 0});
